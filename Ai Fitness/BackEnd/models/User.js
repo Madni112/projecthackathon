@@ -23,6 +23,7 @@ const UserSchema = new mongoose.Schema({
     right: { type: String }
   },
   hasCompletedOnboarding: { type: Boolean, default: false },
+  isOnBoardingCompleted: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
 

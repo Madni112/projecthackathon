@@ -1,9 +1,9 @@
-// Robust fetch supporting native Node globalThis.fetch
+// Robust fetch helper using native globalThis.fetch (Node 18+) or fallback to dynamic node-fetch
 const getFetch = () => {
   if (typeof globalThis.fetch === 'function') {
     return globalThis.fetch;
   }
-  return (...args) => import('node-fetch').then(({default: f}) => f(...args));
+  return (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 };
 
 function getOpenRouterKeys() {
@@ -55,16 +55,13 @@ function getOpenAIKeys() {
 }
 
 /**
- * Main AI Chat Generation Function with 2-3 Line Length Enforcement & Key Rotation
+ * Main AI Chat Generation Function with Key & Model Rotation Fallback
  */
 async function generateAIChatResponse(userPrompt, systemContext = "You are an expert AI Fitness & Nutrition Coach.") {
   const fetchFn = getFetch();
   const openRouterKeys = getOpenRouterKeys();
   const geminiKeys = getGeminiKeys();
   const openAIKeys = getOpenAIKeys();
-
-  // Enforce 2-3 line concise system prompt instruction
-  const conciseSystemContext = `${systemContext} STRICT INSTRUCTION: You MUST keep your reply concise, direct, and exactly 2 to 3 short lines long. Do not output markdown codeblocks or long introductory greetings.`;
 
   const openRouterModels = [
     'openrouter/auto',
@@ -81,7 +78,7 @@ async function generateAIChatResponse(userPrompt, systemContext = "You are an ex
     const apiKey = openRouterKeys[i];
     for (const modelName of openRouterModels) {
       try {
-        console.log(`[AI Engine] Attempting OpenRouter Key #${i + 1} (${modelName})`);
+        console.log(`[AI Engine] Attempting OpenRouter API Key #${i + 1} with model: ${modelName}`);
         const response = await fetchFn('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -93,7 +90,7 @@ async function generateAIChatResponse(userPrompt, systemContext = "You are an ex
           body: JSON.stringify({
             model: modelName,
             messages: [
-              { role: 'system', content: conciseSystemContext },
+              { role: 'system', content: systemContext },
               { role: 'user', content: userPrompt }
             ]
           })
@@ -108,10 +105,10 @@ async function generateAIChatResponse(userPrompt, systemContext = "You are an ex
           }
         } else {
           const errText = await response.text();
-          console.warn(`[AI Engine] OpenRouter (${modelName}) status ${response.status}: ${errText}`);
+          console.warn(`[AI Engine] OpenRouter (${modelName}) status ${response.status}: ${errText}. Trying next model...`);
         }
       } catch (err) {
-        console.warn(`[AI Engine] OpenRouter (${modelName}) error: ${err.message}`);
+        console.warn(`[AI Engine] OpenRouter (${modelName}) error: ${err.message}. Trying next model...`);
       }
     }
   }
@@ -120,13 +117,13 @@ async function generateAIChatResponse(userPrompt, systemContext = "You are an ex
   for (let i = 0; i < geminiKeys.length; i++) {
     const apiKey = geminiKeys[i];
     try {
-      console.log(`[AI Engine] Attempting Gemini Key #${i + 1}`);
+      console.log(`[AI Engine] Attempting Gemini API Key #${i + 1}`);
       const response = await fetchFn(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{
-            parts: [{ text: `${conciseSystemContext}\n\nUser Question: ${userPrompt}` }]
+            parts: [{ text: `${systemContext}\n\nUser Question: ${userPrompt}` }]
           }]
         })
       });
@@ -135,18 +132,22 @@ async function generateAIChatResponse(userPrompt, systemContext = "You are an ex
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (text) {
-          console.log(`[AI Engine] Gemini Key #${i + 1} Succeeded!`);
+          console.log(`[AI Engine] Gemini API Key #${i + 1} Succeeded!`);
           return text.trim();
         }
+      } else {
+        console.warn(`[AI Engine] Gemini API Key #${i + 1} failed status ${response.status}`);
       }
-    } catch (err) {}
+    } catch (err) {
+      console.warn(`[AI Engine] Gemini API Key #${i + 1} error: ${err.message}`);
+    }
   }
 
   // 3. Try OpenAI API Keys sequentially
   for (let i = 0; i < openAIKeys.length; i++) {
     const apiKey = openAIKeys[i];
     try {
-      console.log(`[AI Engine] Attempting OpenAI Key #${i + 1}`);
+      console.log(`[AI Engine] Attempting OpenAI API Key #${i + 1}`);
       const response = await fetchFn('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -156,7 +157,7 @@ async function generateAIChatResponse(userPrompt, systemContext = "You are an ex
         body: JSON.stringify({
           model: 'gpt-3.5-turbo',
           messages: [
-            { role: 'system', content: conciseSystemContext },
+            { role: 'system', content: systemContext },
             { role: 'user', content: userPrompt }
           ]
         })
@@ -166,15 +167,19 @@ async function generateAIChatResponse(userPrompt, systemContext = "You are an ex
         const data = await response.json();
         const text = data.choices?.[0]?.message?.content;
         if (text) {
-          console.log(`[AI Engine] OpenAI Key #${i + 1} Succeeded!`);
+          console.log(`[AI Engine] OpenAI API Key #${i + 1} Succeeded!`);
           return text.trim();
         }
+      } else {
+        console.warn(`[AI Engine] OpenAI API Key #${i + 1} status ${response.status}`);
       }
-    } catch (err) {}
+    } catch (err) {
+      console.warn(`[AI Engine] OpenAI API Key #${i + 1} error: ${err.message}`);
+    }
   }
 
-  // Fallback 2-line response if offline
-  return `To optimize your muscle hypertrophy and recovery, maintain a daily intake of 1.8g-2.2g of protein per kg of bodyweight alongside 3 to 4 Liters of water.\nConsistently hit 7.5+ hours of deep restorative sleep to maximize cellular repair and training performance.`;
+  // Fallback AI advice if keys hit quota
+  return `As your AI Fitness & Nutrition Specialist: Maintain an active target of 3-4 Liters of water daily, consume 1.8g protein per kg of bodyweight, and prioritize 7.5+ hours of sleep to support cellular recovery and muscle performance!`;
 }
 
 module.exports = {

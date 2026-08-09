@@ -154,14 +154,20 @@ export default function UserDashboard() {
         const data = await res.json();
         if (data.user) {
           setUser(data.user);
-          const userKey = 'ai_onboarding_completed_' + (data.user.email || data.user._id);
-          const userOnboardingDone = localStorage.getItem(userKey);
-          if (!data.user.hasCompletedOnboarding && !userOnboardingDone) {
+          const has4Photos = !!(data.user.uploadedPhotos?.front && data.user.uploadedPhotos?.back && data.user.uploadedPhotos?.left && data.user.uploadedPhotos?.right);
+          const isCompleted = (data.user.isOnBoardingCompleted || data.user.hasCompletedOnboarding) && has4Photos;
+          if (!isCompleted) {
             setShowOnboardingModal(true);
           }
+        } else {
+          setShowOnboardingModal(true);
         }
+      } else {
+        setShowOnboardingModal(true);
       }
-    } catch (e) {}
+    } catch (e) {
+      setShowOnboardingModal(true);
+    }
 
     generateAIPlan('Muscle Building', 'Gym (Full Equipment Split)', 'Peanuts, Dairy', 'None / Healthy');
   };
@@ -197,6 +203,10 @@ export default function UserDashboard() {
   };
 
   const runBodyAnalysis = async () => {
+    if (!bodyPhotos.front || !bodyPhotos.back || !bodyPhotos.left || !bodyPhotos.right) {
+      toast.error("All 4 posture photos (Front, Back, Left, Right) are strictly required to proceed!");
+      return;
+    }
     setAnalyzing(true);
     try {
       const res = await fetch('http://localhost:5000/api/fitness/body-analysis', {
@@ -206,28 +216,26 @@ export default function UserDashboard() {
       });
       const data = await res.json();
 
-      setTimeout(() => {
-        const estWeight = parseFloat((72.0 + Math.random() * 4).toFixed(1));
-        const estBMI = data.estimatedBMI || 22.4;
-        const estCalories = selectedGoal === 'Weight Loss' ? 1850 : selectedGoal === 'Weight Gain' ? 2800 : 2450;
+      const estWeight = data.estimatedWeight || 74.5;
+      const estBMI = data.estimatedBMI || 22.4;
+      const estCalories = selectedGoal === 'Weight Loss' ? 1850 : selectedGoal === 'Weight Gain' ? 2800 : 2450;
 
-        setAnalysisResult({
-          postureScore: data.postureScore || 88,
-          estimatedBMI: estBMI,
-          estimatedWeight: estWeight,
-          estimatedCalories: estCalories,
-          landmarks: data.landmarks || { headTilt: 1.8, shoulderAlignment: 97.5, spineCurvature: 94.0 },
-          insights: data.insights || [
-            "Left shoulder slightly elevated (+1.4°). Core stability recommended.",
-            "Normal cervical posture alignment (1.8° tilt).",
-            "Optimal spinal symmetry index (94.0%)."
-          ]
-        });
-        setHabits(prev => ({ ...prev, weight: estWeight }));
-        setAnalyzing(false);
-        setModalStep(2);
-        toast.success("AI Agent posture & body analysis complete!");
-      }, 900);
+      setAnalysisResult({
+        postureScore: data.postureScore || 88,
+        estimatedBMI: estBMI,
+        estimatedWeight: estWeight,
+        estimatedCalories: estCalories,
+        landmarks: data.landmarks || { headTilt: 1.8, shoulderAlignment: 97.5, spineCurvature: 94.0 },
+        insights: data.insights || [
+          "Left shoulder slightly elevated (+1.4°). Core stability recommended.",
+          "Normal cervical posture alignment (1.8° tilt).",
+          "Optimal spinal symmetry index (94.0%)."
+        ]
+      });
+      setHabits(prev => ({ ...prev, weight: estWeight }));
+      setAnalyzing(false);
+      setModalStep(2);
+      toast.success("AI Agent posture & body analysis complete!");
     } catch (e) {
       setAnalysisResult({
         postureScore: 88,
@@ -437,18 +445,18 @@ export default function UserDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] text-[#0c0a09] flex flex-col font-sans antialiased selection:bg-[#c8b8e0]/40 relative">
+    <div className="min-h-screen bg-[#f9f7f3] text-[#202020] flex flex-col font-sans antialiased relative">
       
-      {/* ─── TOP NAVIGATION HEADER ─── */}
-      <header className="border-b border-[#e7e5e4] bg-[#ffffff] sticky top-0 z-40 shadow-xs">
+      {/* ─── TOP NAVIGATION HEADER (Replicate Warm Cream & Hot Orange Mode) ─── */}
+      <header className="border-b border-[rgba(32,32,32,0.12)] bg-[#f9f7f3] sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#292524] text-white flex items-center justify-center font-serif text-sm font-light">
-              AI
+            <div className="w-8 h-8 rounded-full bg-[#ea2804] text-white flex items-center justify-center font-bold text-xs">
+              r/
             </div>
             <div>
-              <span className="font-serif-editorial text-lg text-[#0c0a09]">AI Fitness Coach</span>
-              <span className="ml-2.5 badge-pill text-[10px]">
+              <span className="font-bold text-xl tracking-tight text-[#202020] leading-none">AI Fitness Coach</span>
+              <span className="ml-2.5 badge-orange text-[10px]">
                 User Portal
               </span>
             </div>
@@ -457,7 +465,7 @@ export default function UserDashboard() {
           <div className="flex items-center gap-4">
             <button
               onClick={handleLogout}
-              className="p-2 rounded-full border border-[#e7e5e4] hover:bg-red-50 text-[#777169] hover:text-red-600 transition-colors"
+              className="p-2 rounded-full border border-[rgba(32,32,32,0.12)] hover:bg-red-50 text-[#575757] hover:text-[#ea2804] transition-colors"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -468,7 +476,7 @@ export default function UserDashboard() {
       {/* Main Workspace Layout (Sidebar Nav on Left) */}
       <div className="max-w-7xl mx-auto px-6 py-8 w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* ─── SIDEBAR NAVIGATION (Items in Sidebar) ─── */}
+        {/* ─── SIDEBAR NAVIGATION (Replicate Pill Buttons) ─── */}
         <aside className="lg:col-span-3 space-y-2">
           {[
             { id: 'overview', label: 'Overview', icon: Activity },
@@ -483,14 +491,14 @@ export default function UserDashboard() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-full font-medium text-xs transition-all ${
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-full font-bold text-xs transition-all ${
                   activeTab === tab.id
-                    ? 'btn-primary-pill justify-between shadow-xs'
-                    : 'text-[#777169] hover:text-[#0c0a09] hover:bg-[#fafafa]'
+                    ? 'bg-[#ea2804] text-white shadow-xs justify-between'
+                    : 'text-[#575757] hover:text-[#202020] hover:bg-[#f3f0e8]'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-white' : 'text-[#777169]'}`} />
+                  <Icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-white' : 'text-[#575757]'}`} />
                   <span>{tab.label}</span>
                 </div>
                 {activeTab === tab.id && <ChevronRight className="w-4 h-4 text-white" />}
@@ -1091,20 +1099,14 @@ export default function UserDashboard() {
             {/* Modal Header */}
             <div className="p-5 border-b border-[#e7e5e4] flex items-center justify-between bg-[#fafafa]">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-[#292524] text-white flex items-center justify-center text-xs">
+                <div className="w-7 h-7 rounded-full bg-[#ea2804] text-white flex items-center justify-center text-xs">
                   <Camera className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h3 className="font-serif-editorial text-lg text-[#0c0a09]">AI Body Posture & Health Onboarding</h3>
-                  <span className="text-[10px] text-[#777169] font-mono">Step {modalStep} of 3</span>
+                  <h3 className="font-bold text-lg text-[#202020]">AI Body Posture & Health Onboarding</h3>
+                  <span className="text-[10px] text-[#575757] font-mono">Step {modalStep} of 3 (Mandatory Onboarding)</span>
                 </div>
               </div>
-              <button
-                onClick={() => setShowOnboardingModal(false)}
-                className="p-2 rounded-full hover:bg-[#e7e5e4] text-[#777169] transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
 
             {/* Modal Body */}

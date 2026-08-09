@@ -71,7 +71,9 @@ app.post('/api/users/register', async (req, res) => {
             name,
             email,
             password: hashedPassword,
-            role: role || "employee"
+            role: role || "employee",
+            hasCompletedOnboarding: false,
+            isOnBoardingCompleted: false
         });
 
         const savedUser = await newUser.save();
@@ -399,30 +401,68 @@ app.post('/api/fitness/generate-plan', async (req, res) => {
             selectedTemplate = await CustomPlanTemplate.findById(templateId);
         }
 
-        const calories = selectedTemplate ? selectedTemplate.dailyCalories : (goal === 'Weight Loss' ? 1850 : goal === 'Weight Gain' ? 2800 : goal === 'Muscle Building' ? 2450 : 2100);
-        const protein = selectedTemplate ? selectedTemplate.protein : (goal === 'Muscle Building' ? 175 : 140);
-        const carbs = selectedTemplate ? selectedTemplate.carbs : (goal === 'Weight Loss' ? 150 : 280);
-        const fats = selectedTemplate ? selectedTemplate.fats : 65;
+        let calories = selectedTemplate ? selectedTemplate.dailyCalories : (goal === 'Weight Loss' ? 1850 : goal === 'Weight Gain' ? 2800 : goal === 'Muscle Building' ? 2450 : 2100);
+        let protein = selectedTemplate ? selectedTemplate.protein : (goal === 'Muscle Building' ? 175 : 140);
+        let carbs = selectedTemplate ? selectedTemplate.carbs : (goal === 'Weight Loss' ? 150 : 280);
+        let fats = selectedTemplate ? selectedTemplate.fats : 65;
 
-        // Custom Allergy Filter string
-        const allergyStr = Array.isArray(allergies) && allergies.length > 0 ? allergies.join(', ') : 'None';
+        // Custom Allergy Filter string & Diagnosis
+        const allergyStr = Array.isArray(allergies) && allergies.length > 0 ? allergies.join(', ') : (typeof allergies === 'string' ? allergies : 'None');
         const diagStr = diagnosis || 'None / Healthy';
+
+        let generatedMeals = [
+            { name: 'Breakfast', items: [`Oatmeal with Almond Milk (Excl: ${allergyStr})`, '3 Egg Whites & 1 Whole Egg', 'Blueberries'], calories: 480, time: '08:00 AM' },
+            { name: 'Lunch', items: [`Grilled Chicken Breast (200g) (Diagnosis Safe: ${diagStr})`, 'Brown Rice (150g)', 'Steamed Broccoli'], calories: 650, time: '01:00 PM' },
+            { name: 'Snack', items: [`Greek Yogurt with Honey (Allergy Filter: ${allergyStr})`, 'Handful of Walnuts'], calories: 320, time: '04:30 PM' },
+            { name: 'Dinner', items: ['Baked Salmon Fillet', 'Quinoa Salad', 'Asparagus Spears'], calories: 620, time: '07:30 PM' }
+        ];
+
+        // Call AI LLM Engine to generate dynamic AI Calories, Macros & Meal Plan
+        if (!selectedTemplate) {
+            try {
+                const aiPlanPrompt = `Generate custom caloric targets and diet meals for Goal: "${goal}", Workout Type: "${planType}", Diagnosis: "${diagStr}", Allergies: "${allergyStr}".
+Output STRICT JSON format:
+{
+  "calories": 2450,
+  "protein": 175,
+  "carbs": 220,
+  "fats": 65,
+  "meals": [
+    {"name": "Breakfast", "items": ["Item 1", "Item 2"], "calories": 500, "time": "08:00 AM"},
+    {"name": "Lunch", "items": ["Item 1", "Item 2"], "calories": 700, "time": "01:00 PM"},
+    {"name": "Snack", "items": ["Item 1", "Item 2"], "calories": 350, "time": "04:30 PM"},
+    {"name": "Dinner", "items": ["Item 1", "Item 2"], "calories": 650, "time": "07:30 PM"}
+  ]
+}`;
+                const aiText = await generateAIChatResponse(aiPlanPrompt, "You are a master AI Dietitian and Anthropometrics Specialist. Respond strictly with JSON.");
+                if (aiText) {
+                    const match = aiText.match(/\{[\s\S]*\}/);
+                    if (match) {
+                        const parsed = JSON.parse(match[0]);
+                        if (parsed.calories) calories = parseInt(parsed.calories);
+                        if (parsed.protein) protein = parseInt(parsed.protein);
+                        if (parsed.carbs) carbs = parseInt(parsed.carbs);
+                        if (parsed.fats) fats = parseInt(parsed.fats);
+                        if (Array.isArray(parsed.meals) && parsed.meals.length >= 4) {
+                            generatedMeals = parsed.meals;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn("[AI Engine] Generate plan AI fallback used:", e.message);
+            }
+        }
 
         const generatedPlan = {
             userId: userId || new mongoose.Types.ObjectId(),
             goal: selectedTemplate ? selectedTemplate.goal : (goal || 'Muscle Building'),
             planType: selectedTemplate ? selectedTemplate.workoutSplitType : (planType || 'Gym'),
-            allergies: Array.isArray(allergies) ? allergies : [],
+            allergies: Array.isArray(allergies) ? allergies : [allergyStr],
             diagnosis: diagStr,
             dietPlan: {
                 dailyCalories: calories,
                 macros: { protein, carbs, fats },
-                meals: selectedTemplate && selectedTemplate.meals.length > 0 ? selectedTemplate.meals : [
-                    { name: 'Breakfast', items: [`Oatmeal with Almond Milk (Excl: ${allergyStr})`, '3 Egg Whites & 1 Whole Egg', 'Blueberries'], calories: 480, time: '08:00 AM' },
-                    { name: 'Lunch', items: [`Grilled Chicken Breast (200g) (Diagnosis Safe: ${diagStr})`, 'Brown Rice (150g)', 'Steamed Broccoli'], calories: 650, time: '01:00 PM' },
-                    { name: 'Snack', items: [`Greek Yogurt with Honey (Allergy Filter: ${allergyStr})`, 'Handful of Walnuts'], calories: 320, time: '04:30 PM' },
-                    { name: 'Dinner', items: ['Baked Salmon Fillet', 'Quinoa Salad', 'Asparagus Spears'], calories: 620, time: '07:30 PM' }
-                ]
+                meals: selectedTemplate && selectedTemplate.meals.length > 0 ? selectedTemplate.meals : generatedMeals
             },
             workoutPlan: {
                 weeklySplit: [
@@ -439,7 +479,7 @@ app.post('/api/fitness/generate-plan', async (req, res) => {
             await Plan.deleteMany({ userId });
             const saved = new Plan(generatedPlan);
             await saved.save();
-            await User.findByIdAndUpdate(userId, { hasCompletedOnboarding: true });
+            await User.findByIdAndUpdate(userId, { hasCompletedOnboarding: true, isOnBoardingCompleted: true });
         }
 
         res.json({ success: true, plan: generatedPlan });
@@ -452,7 +492,7 @@ app.post('/api/users/complete-onboarding', async (req, res) => {
     try {
         const userId = req.session.user ? req.session.user.id : null;
         if (userId) {
-            await User.findByIdAndUpdate(userId, { hasCompletedOnboarding: true });
+            await User.findByIdAndUpdate(userId, { hasCompletedOnboarding: true, isOnBoardingCompleted: true });
         }
         res.json({ success: true });
     } catch (err) {

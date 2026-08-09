@@ -366,13 +366,13 @@ export default function AdminDashboard() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-full font-medium text-xs transition-all ${activeTab === tab.id
-                  ? 'btn-primary-pill justify-between shadow-xs'
-                  : 'text-[#777169] hover:text-[#0c0a09] hover:bg-[#fafafa]'
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-full font-bold text-xs transition-all ${activeTab === tab.id
+                  ? 'bg-[#ea2804] text-white shadow-sm'
+                  : 'text-[#575757] hover:text-[#202020] hover:bg-[#f3f0e8]'
                   }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-white' : 'text-[#777169]'}`} />
+                  <Icon className={`w-4 h-4 ${activeTab === tab.id ? 'text-white' : 'text-[#575757]'}`} />
                   <span>{tab.label}</span>
                 </div>
                 {activeTab === tab.id && <ChevronRight className="w-4 h-4 text-white" />}
