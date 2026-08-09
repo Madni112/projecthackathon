@@ -743,8 +743,6 @@ app.post('/api/fitness/track-habits', async (req, res) => {
 });
 
 // RAG CHATBOT ROUTE
-const { generateAIChatResponse } = require('./services/aiService');
-
 app.post('/api/fitness/chat', async (req, res) => {
     try {
         const { query } = req.body;
