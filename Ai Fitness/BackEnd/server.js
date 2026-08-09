@@ -73,7 +73,8 @@ app.post('/api/users/register', async (req, res) => {
             password: hashedPassword,
             role: role || "employee",
             hasCompletedOnboarding: false,
-            isOnBoardingCompleted: false
+            isOnBoardingCompleted: false,
+            isUserOnboarding: false
         });
 
         const savedUser = await newUser.save();
@@ -148,10 +149,12 @@ app.get('/api/users/profile', async (req, res) => {
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
+        const isOnboarded = !!(user.isUserOnboarding || user.isOnBoardingCompleted || user.hasCompletedOnboarding);
         res.json({
             success: true,
             user,
-            isOnBoardingCompleted: !!(user.isOnBoardingCompleted || user.hasCompletedOnboarding)
+            isUserOnboarding: isOnboarded,
+            isOnBoardingCompleted: isOnboarded
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -164,6 +167,7 @@ app.post('/api/users/profile', async (req, res) => {
         const { uploadedPhotos, postureScore, estimatedBMI } = req.body;
         
         let updateData = {
+            isUserOnboarding: true,
             isOnBoardingCompleted: true,
             hasCompletedOnboarding: true
         };
@@ -180,6 +184,7 @@ app.post('/api/users/profile', async (req, res) => {
             success: true,
             message: "User profile updated permanently in backend",
             user,
+            isUserOnboarding: true,
             isOnBoardingCompleted: true
         });
     } catch (err) {

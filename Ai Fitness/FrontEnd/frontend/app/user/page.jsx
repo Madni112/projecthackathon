@@ -175,15 +175,19 @@ export default function UserDashboard() {
 
   const fetchInitialPlan = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/users/me', { credentials: 'include' });
+      const res = await fetch('http://localhost:5000/api/users/profile', { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         if (data.user) {
           setUser(data.user);
           const userKey = 'ai_onboarding_completed_' + (data.user.email || data.user._id);
           const userOnboardingDone = localStorage.getItem(userKey) === 'true' || localStorage.getItem('ai_onboarding_completed') === 'true';
-          const isCompleted = !!(data.user.isOnBoardingCompleted || data.user.hasCompletedOnboarding || userOnboardingDone);
-          if (!isCompleted) {
+          const isCompleted = !!(data.user.isUserOnboarding || data.user.isOnBoardingCompleted || data.user.hasCompletedOnboarding || userOnboardingDone);
+          
+          // STRICT RULE: Ask posture photos ONLY ONCE in a lifetime for a user account!
+          if (isCompleted) {
+            setShowOnboardingModal(false);
+          } else {
             setShowOnboardingModal(true);
           }
         }
