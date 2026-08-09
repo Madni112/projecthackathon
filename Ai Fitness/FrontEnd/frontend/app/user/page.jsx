@@ -154,20 +154,15 @@ export default function UserDashboard() {
         const data = await res.json();
         if (data.user) {
           setUser(data.user);
-          const has4Photos = !!(data.user.uploadedPhotos?.front && data.user.uploadedPhotos?.back && data.user.uploadedPhotos?.left && data.user.uploadedPhotos?.right);
-          const isCompleted = (data.user.isOnBoardingCompleted || data.user.hasCompletedOnboarding) && has4Photos;
+          const userKey = 'ai_onboarding_completed_' + (data.user.email || data.user._id);
+          const userOnboardingDone = localStorage.getItem(userKey) === 'true' || localStorage.getItem('ai_onboarding_completed') === 'true';
+          const isCompleted = !!(data.user.isOnBoardingCompleted || data.user.hasCompletedOnboarding || userOnboardingDone);
           if (!isCompleted) {
             setShowOnboardingModal(true);
           }
-        } else {
-          setShowOnboardingModal(true);
         }
-      } else {
-        setShowOnboardingModal(true);
       }
-    } catch (e) {
-      setShowOnboardingModal(true);
-    }
+    } catch (e) {}
 
     generateAIPlan('Muscle Building', 'Gym (Full Equipment Split)', 'Peanuts, Dairy', 'None / Healthy');
   };
