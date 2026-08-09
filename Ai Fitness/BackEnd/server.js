@@ -464,14 +464,56 @@ Output STRICT JSON format:
                 macros: { protein, carbs, fats },
                 meals: selectedTemplate && selectedTemplate.meals.length > 0 ? selectedTemplate.meals : generatedMeals
             },
+        // Dynamic AI Workout Split Generation based on user posture score, goal & equipment split
+        let weeklySplit = [
+            { day: 'Monday', title: 'Chest & Triceps Focus', exercises: [{ name: 'Barbell Bench Press', sets: 4, reps: '8-10', notes: 'Progressive overload' }, { name: 'Incline Dumbbell Press', sets: 3, reps: '10-12', notes: 'Control eccentric phase' }, { name: 'Tricep Cable Pushdowns', sets: 4, reps: '12-15', notes: 'Squeeze at bottom' }] },
+            { day: 'Tuesday', title: 'Back & Biceps Power', exercises: [{ name: 'Lat Pulldowns / Pullups', sets: 4, reps: '8-10', notes: 'Full stretch' }, { name: 'Barbell Bent Over Row', sets: 4, reps: '8-10', notes: 'Engage core' }, { name: 'Hammer Curls', sets: 3, reps: '12', notes: 'Strict form' }] },
+            { day: 'Wednesday', title: 'Active Recovery & Core', exercises: [{ name: 'Hanging Leg Raises', sets: 3, reps: '15', notes: 'No swinging' }, { name: 'Plank Hold', sets: 3, reps: '60s', notes: 'Brace abs' }] },
+            { day: 'Thursday', title: 'Legs & Calves Hypertrophy', exercises: [{ name: 'Barbell Back Squats', sets: 4, reps: '6-8', notes: 'Break parallel' }, { name: 'Romanian Deadlifts', sets: 4, reps: '8-10', notes: 'Hinge at hips' }, { name: 'Standing Calf Raises', sets: 4, reps: '15-20', notes: 'Pause at top' }] },
+            { day: 'Friday', title: 'Shoulders & Arms Precision', exercises: [{ name: 'Overhead Military Press', sets: 4, reps: '8', notes: 'Neutral spine' }, { name: 'Dumbbell Lateral Raises', sets: 4, reps: '12-15', notes: 'Lead with elbows' }] }
+        ];
+
+        try {
+            const aiWorkoutPrompt = `Generate a 5-day custom workout split JSON for Goal: "${goal}", Equipment Split: "${planType}", Posture Diagnosis: "${diagStr}".
+Output STRICT JSON format:
+{
+  "weeklySplit": [
+    {
+      "day": "Monday",
+      "title": "Chest & Triceps Focus",
+      "exercises": [
+        {"name": "Exercise Name", "sets": 4, "reps": "8-10", "notes": "Form guidance note"}
+      ]
+    }
+  ]
+}`;
+            const aiWorkoutText = await generateAIChatResponse(aiWorkoutPrompt, "You are a master AI Biomechanics & Strength Conditioning Specialist. Respond strictly with JSON.");
+            if (aiWorkoutText) {
+                const match = aiWorkoutText.match(/\{[\s\S]*\}/);
+                if (match) {
+                    const parsed = JSON.parse(match[0]);
+                    if (Array.isArray(parsed.weeklySplit) && parsed.weeklySplit.length >= 3) {
+                        weeklySplit = parsed.weeklySplit;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("[AI Engine] Workout split AI fallback used:", e.message);
+        }
+
+        const generatedPlan = {
+            userId: userId || new mongoose.Types.ObjectId(),
+            goal: selectedTemplate ? selectedTemplate.goal : (goal || 'Muscle Building'),
+            planType: selectedTemplate ? selectedTemplate.workoutSplitType : (planType || 'Gym'),
+            allergies: Array.isArray(allergies) ? allergies : [allergyStr],
+            diagnosis: diagStr,
+            dietPlan: {
+                dailyCalories: calories,
+                macros: { protein, carbs, fats },
+                meals: selectedTemplate && selectedTemplate.meals.length > 0 ? selectedTemplate.meals : generatedMeals
+            },
             workoutPlan: {
-                weeklySplit: [
-                    { day: 'Monday', title: 'Chest & Triceps Focus', exercises: [{ name: 'Barbell Bench Press', sets: 4, reps: '8-10', notes: 'Progressive overload' }, { name: 'Incline Dumbbell Press', sets: 3, reps: '10-12', notes: 'Control eccentric phase' }, { name: 'Tricep Cable Pushdowns', sets: 4, reps: '12-15', notes: 'Squeeze at bottom' }] },
-                    { day: 'Tuesday', title: 'Back & Biceps Power', exercises: [{ name: 'Lat Pulldowns / Pullups', sets: 4, reps: '8-10', notes: 'Full stretch' }, { name: 'Barbell Bent Over Row', sets: 4, reps: '8-10', notes: 'Engage core' }, { name: 'Hammer Curls', sets: 3, reps: '12', notes: 'Strict form' }] },
-                    { day: 'Wednesday', title: 'Active Recovery & Core', exercises: [{ name: 'Hanging Leg Raises', sets: 3, reps: '15', notes: 'No swinging' }, { name: 'Plank Hold', sets: 3, reps: '60s', notes: 'Brace abs' }] },
-                    { day: 'Thursday', title: 'Legs & Calves Hypertrophy', exercises: [{ name: 'Barbell Back Squats', sets: 4, reps: '6-8', notes: 'Break parallel' }, { name: 'Romanian Deadlifts', sets: 4, reps: '8-10', notes: 'Hinge at hips' }, { name: 'Standing Calf Raises', sets: 4, reps: '15-20', notes: 'Pause at top' }] },
-                    { day: 'Friday', title: 'Shoulders & Arms Precision', exercises: [{ name: 'Overhead Military Press', sets: 4, reps: '8', notes: 'Neutral spine' }, { name: 'Dumbbell Lateral Raises', sets: 4, reps: '12-15', notes: 'Lead with elbows' }] }
-                ]
+                weeklySplit
             }
         };
 
@@ -483,6 +525,101 @@ Output STRICT JSON format:
         }
 
         res.json({ success: true, plan: generatedPlan });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// EMPLOYEE PORTAL API ROUTES (AI WORKOUT GENERATION & USER MANAGEMENT)
+app.get('/api/employee/users', async (req, res) => {
+    try {
+        const users = await User.find({ role: 'user' }).select('-password').sort({ createdAt: -1 });
+        const userPlans = await Promise.all(users.map(async u => {
+            const plan = await Plan.findOne({ userId: u._id });
+            return {
+                user: u,
+                plan: plan || null
+            };
+        }));
+        res.json(userPlans);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/employee/generate-workout', async (req, res) => {
+    try {
+        const { targetUserId, customGoal, customSplit, notes } = req.body;
+        const targetUser = await User.findById(targetUserId);
+
+        if (!targetUser) {
+            return res.status(404).json({ error: "Target user not found" });
+        }
+
+        const goal = customGoal || "Muscle Building";
+        const splitType = customSplit || "Gym (Full Equipment Split)";
+        const postureScore = targetUser.postureScore || 88;
+        const estimatedBMI = targetUser.estimatedBMI || 22.4;
+
+        let weeklySplit = [
+            { day: 'Monday', title: 'Chest & Triceps Hypertrophy', exercises: [{ name: 'Barbell Bench Press', sets: 4, reps: '8-10', notes: 'Trainer AI: Focus on chest contraction' }, { name: 'Incline Dumbbell Press', sets: 3, reps: '10-12', notes: 'Control tempo 3-1-1' }] },
+            { day: 'Tuesday', title: 'Back & Biceps Progression', exercises: [{ name: 'Lat Pulldowns', sets: 4, reps: '10', notes: 'Pull to upper chest' }, { name: 'Seated Cable Rows', sets: 4, reps: '10-12', notes: 'Squeeze shoulder blades' }] },
+            { day: 'Wednesday', title: 'Core & Posture Realignment', exercises: [{ name: 'Plank Holds', sets: 3, reps: '60s', notes: `Target posture alignment (${postureScore}%)` }, { name: 'Face Pulls', sets: 4, reps: '15', notes: 'Correct shoulder elevation' }] },
+            { day: 'Thursday', title: 'Legs & Lower Body Conditioning', exercises: [{ name: 'Barbell Squats', sets: 4, reps: '8', notes: `Adjusted for BMI ${estimatedBMI}` }, { name: 'Leg Press', sets: 3, reps: '12', notes: 'Steady resistance' }] },
+            { day: 'Friday', title: 'Shoulders & Arms Sculpting', exercises: [{ name: 'Overhead Press', sets: 4, reps: '8-10', notes: 'Keep core engaged' }, { name: 'Hammer Curls', sets: 4, reps: '12', notes: 'Strict form' }] }
+        ];
+
+        try {
+            const aiWorkoutPrompt = `Generate a customized 5-day AI Workout Split for User: "${targetUser.name}", Goal: "${goal}", Equipment: "${splitType}", Posture Score: ${postureScore}%, BMI: ${estimatedBMI}, Employee Notes: "${notes || 'None'}".
+Output STRICT JSON format:
+{
+  "weeklySplit": [
+    {
+      "day": "Monday",
+      "title": "Day Title",
+      "exercises": [
+        {"name": "Exercise Name", "sets": 4, "reps": "8-10", "notes": "AI Trainer Note"}
+      ]
+    }
+  ]
+}`;
+            const aiText = await generateAIChatResponse(aiWorkoutPrompt, "You are a senior AI Biomechanics & Strength Specialist designing custom training routines for clients. Respond strictly with JSON.");
+            if (aiText) {
+                const match = aiText.match(/\{[\s\S]*\}/);
+                if (match) {
+                    const parsed = JSON.parse(match[0]);
+                    if (Array.isArray(parsed.weeklySplit) && parsed.weeklySplit.length >= 3) {
+                        weeklySplit = parsed.weeklySplit;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("[AI Engine] Employee workout generation fallback used:", e.message);
+        }
+
+        // Update or create user plan with new AI Workout Split
+        let existingPlan = await Plan.findOne({ userId: targetUserId });
+        if (existingPlan) {
+            existingPlan.goal = goal;
+            existingPlan.planType = splitType;
+            existingPlan.workoutPlan = { weeklySplit };
+            await existingPlan.save();
+        } else {
+            existingPlan = new Plan({
+                userId: targetUserId,
+                goal,
+                planType: splitType,
+                dietPlan: {
+                    dailyCalories: 2450,
+                    macros: { protein: 175, carbs: 220, fats: 65 },
+                    meals: []
+                },
+                workoutPlan: { weeklySplit }
+            });
+            await existingPlan.save();
+        }
+
+        res.json({ success: true, message: `AI Workout Split generated for ${targetUser.name}!`, plan: existingPlan });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
