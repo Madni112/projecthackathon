@@ -14,6 +14,7 @@ const SupportMessage = require('./models/SupportMessage');
 const Chat = require('./models/Chat');
 const CustomPlanTemplate = require('./models/CustomPlanTemplate');
 const SubscriptionPlan = require('./models/SubscriptionPlan');
+const { generateAIChatResponse, generateAIVisionAnalysis } = require('./services/aiService');
 
 const app = express();
 
@@ -211,48 +212,66 @@ app.post('/api/users/logout', (req, res) => {
     });
 });
 
-//// AI BODY ANALYSIS & POSTURE ESTIMATION
+//// AI BODY ANALYSIS & POSTURE ESTIMATION (OpenRouter Multimodal Vision AI Analysis)
 app.post('/api/fitness/body-analysis', async (req, res) => {
     try {
         const { front, back, left, right } = req.body;
         const userId = req.session.user ? req.session.user.id : null;
+        const images = [front, back, left, right].filter(Boolean);
 
-        const postureScore = Math.floor(Math.random() * 10) + 86; // 86-96%
+        let postureScore = 90;
         let estimatedBMI = 22.4;
         let estimatedWeight = 74.5;
-        const landmarks = {
-            headTilt: parseFloat((1.2 + Math.random() * 2).toFixed(1)),
-            shoulderAlignment: parseFloat((96.0 + Math.random() * 3.5).toFixed(1)),
-            spineCurvature: parseFloat((93.5 + Math.random() * 4.0).toFixed(1))
+        let estimatedCalories = 2450;
+        let landmarks = {
+            headTilt: 2.1,
+            shoulderAlignment: 97.8,
+            spineCurvature: 94.2
         };
-
-        // Call AI Engine for AI Body Weight & Posture Insights
         let insights = [
-            "Left shoulder slightly elevated (+1.4°). Core stability recommended.",
-            "Forward head posture within normal limits (2.1° tilt).",
-            "Spine curvature excellent (94.2% alignment index)."
+            "Maintain shoulder alignment for better posture stability.",
+            "Engage core muscles during compound movements.",
+            "Regular thoracic stretches improve flexibility and posture."
         ];
 
         try {
-            const aiPrompt = `Perform an anthropometric body analysis on 4 posture photos. Posture Score: ${postureScore}%, shoulder alignment: ${landmarks.shoulderAlignment}%.
-Estimate the user's body weight in kg (between 68-82kg), BMI (between 20-25), and generate 3 short posture insights under 15 words each.
-Respond STRICTLY with valid JSON in this format:
-{"estimatedWeight": 74.5, "estimatedBMI": 22.4, "insights": ["Insight 1", "Insight 2", "Insight 3"]}`;
+            const aiPrompt = `Examine these 4 body posture photos (Front, Back, Left, Right angles).
+Perform an exact anthropometric & biomechanical posture inspection.
+Output STRICT JSON format:
+{
+  "postureScore": 90,
+  "estimatedWeight": 74.5,
+  "estimatedBMI": 22.4,
+  "estimatedCalories": 2450,
+  "landmarks": {
+    "headTilt": 2.1,
+    "shoulderAlignment": 97.5,
+    "spineCurvature": 94.0
+  },
+  "insights": [
+    "Specific observation 1 based on posture photo",
+    "Specific observation 2 based on posture photo",
+    "Specific observation 3 based on posture photo"
+  ]
+}`;
 
-            const aiText = await generateAIChatResponse(aiPrompt, "You are an AI Biomechanics & Anthropometrics Specialist. Respond strictly with JSON.");
+            const aiText = await generateAIVisionAnalysis(images, aiPrompt, "You are a senior AI Vision Anthropometrics & Biomechanics Specialist inspecting client body posture photos. Respond strictly with JSON.");
             if (aiText) {
                 const jsonMatch = aiText.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                     const parsed = JSON.parse(jsonMatch[0]);
+                    if (parsed.postureScore) postureScore = parseInt(parsed.postureScore);
                     if (parsed.estimatedWeight) estimatedWeight = parseFloat(parsed.estimatedWeight);
                     if (parsed.estimatedBMI) estimatedBMI = parseFloat(parsed.estimatedBMI);
+                    if (parsed.estimatedCalories) estimatedCalories = parseInt(parsed.estimatedCalories);
+                    if (parsed.landmarks) landmarks = { ...landmarks, ...parsed.landmarks };
                     if (Array.isArray(parsed.insights) && parsed.insights.length >= 3) {
                         insights = parsed.insights.slice(0, 3);
                     }
                 }
             }
         } catch (e) {
-            console.warn("[AI Engine] Body analysis AI fallback used:", e.message);
+            console.warn("[AI Engine] Vision body analysis AI fallback used:", e.message);
         }
 
         if (userId) {
@@ -269,6 +288,7 @@ Respond STRICTLY with valid JSON in this format:
             postureScore,
             estimatedBMI,
             estimatedWeight,
+            estimatedCalories,
             landmarks,
             insights
         });

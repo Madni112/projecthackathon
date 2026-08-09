@@ -178,12 +178,84 @@ async function generateAIChatResponse(userPrompt, systemContext = "You are an ex
     }
   }
 
-  // Fallback AI advice if keys hit quota
-  return `As your AI Fitness & Nutrition Specialist: Maintain an active target of 3-4 Liters of water daily, consume 1.8g protein per kg of bodyweight, and prioritize 7.5+ hours of sleep to support cellular recovery and muscle performance!`;
+  // 4. Fallback response if no keys provided or all keys fail
+  return `As your AI Fitness Coach: Based on your training schedule, ensure you maintain an active hydration target of 3-4 Liters per day and consume 1.6-2.2g of protein per kg of bodyweight to maximize muscle hypertrophy and recovery!`;
+}
+
+/**
+ * Multimodal AI Vision Analysis Function for Posture Photos (OpenRouter Vision / GPT-4o-mini / Gemini Flash)
+ */
+async function generateAIVisionAnalysis(images = [], userPrompt, systemContext = "You are an expert AI Anthropometrics & Posture Analysis Specialist. Respond strictly with JSON.") {
+  const fetchFn = getFetch();
+  const openRouterKeys = getOpenRouterKeys();
+
+  // Construct multimodal content array (Text prompt + Image URLs)
+  const userContent = [{ type: 'text', text: userPrompt }];
+
+  if (Array.isArray(images)) {
+    images.forEach(img => {
+      if (img && typeof img === 'string' && img.length > 20) {
+        userContent.push({
+          type: 'image_url',
+          image_url: { url: img }
+        });
+      }
+    });
+  }
+
+  const visionModels = [
+    'openai/gpt-4o-mini',
+    'google/gemini-2.0-flash-001',
+    'openai/gpt-4o',
+    'openrouter/auto'
+  ];
+
+  for (let i = 0; i < openRouterKeys.length; i++) {
+    const apiKey = openRouterKeys[i];
+    for (const modelName of visionModels) {
+      try {
+        console.log(`[AI Vision Engine] Analyzing posture photos with OpenRouter (${modelName})...`);
+        const response = await fetchFn('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'HTTP-Referer': 'http://localhost:3000',
+            'X-Title': 'AI Fitness Coach'
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              { role: 'system', content: systemContext },
+              { role: 'user', content: userContent }
+            ]
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const text = data.choices?.[0]?.message?.content;
+          if (text) {
+            console.log(`[AI Vision Engine] OpenRouter Vision (${modelName}) Succeeded!`);
+            return text.trim();
+          }
+        } else {
+          const errText = await response.text();
+          console.warn(`[AI Vision Engine] OpenRouter Vision (${modelName}) status ${response.status}: ${errText}`);
+        }
+      } catch (err) {
+        console.warn(`[AI Vision Engine] OpenRouter Vision error: ${err.message}`);
+      }
+    }
+  }
+
+  // Fallback to text prompt LLM if images unavailable or Vision model fails
+  return generateAIChatResponse(userPrompt, systemContext);
 }
 
 module.exports = {
   generateAIChatResponse,
+  generateAIVisionAnalysis,
   getOpenRouterKeys,
   getGeminiKeys,
   getOpenAIKeys
