@@ -58,8 +58,33 @@ export default function UserDashboard() {
   const [selectedGoal, setSelectedGoal] = useState('Muscle Building');
   const [selectedDiagnosis, setSelectedDiagnosis] = useState('None / Healthy');
   const [allergiesText, setAllergiesText] = useState('Peanuts, Dairy');
-  const [selectedWorkoutOption, setSelectedWorkoutOption] = useState('Gym (Full Equipment Split)');
-  const [activePlan, setActivePlan] = useState(null);
+  const DEFAULT_INITIAL_PLAN = {
+    goal: 'Muscle Building',
+    planType: 'Gym (Full Equipment Split)',
+    allergies: ['Peanuts', 'Dairy'],
+    diagnosis: 'None / Healthy',
+    dietPlan: {
+      dailyCalories: 2450,
+      macros: { protein: 175, carbs: 220, fats: 65 },
+      meals: [
+        { name: 'Breakfast', items: ['Oatmeal with whey protein', '3 boiled eggs', 'Fresh banana & berries'], calories: 550, time: '08:00 AM' },
+        { name: 'Lunch', items: ['Grilled Chicken Breast', 'Brown Rice', 'Steamed Broccoli & Peppers'], calories: 750, time: '01:00 PM' },
+        { name: 'Snack', items: ['Greek Yogurt with honey', 'Handful of mixed almonds'], calories: 400, time: '04:30 PM' },
+        { name: 'Dinner', items: ['Baked Salmon Fillet', 'Quinoa', 'Mixed Greens Salad'], calories: 750, time: '07:30 PM' }
+      ]
+    },
+    workoutPlan: {
+      weeklySplit: [
+        { day: 'Monday', title: 'Chest & Triceps Hypertrophy', exercises: [{ name: 'Barbell Bench Press', sets: 4, reps: '8-10', notes: 'Progressive overload focus' }, { name: 'Incline Dumbbell Press', sets: 3, reps: '10-12', notes: 'Control tempo 3-1-1' }, { name: 'Tricep Cable Pushdowns', sets: 4, reps: '12-15', notes: 'Squeeze at bottom' }] },
+        { day: 'Tuesday', title: 'Back & Biceps Progression', exercises: [{ name: 'Lat Pulldowns', sets: 4, reps: '10', notes: 'Pull to upper chest' }, { name: 'Seated Cable Rows', sets: 4, reps: '10-12', notes: 'Squeeze shoulder blades' }, { name: 'Hammer Curls', sets: 3, reps: '12', notes: 'Strict form' }] },
+        { day: 'Wednesday', title: 'Core & Posture Realignment', exercises: [{ name: 'Plank Holds', sets: 3, reps: '60s', notes: 'Target posture alignment' }, { name: 'Face Pulls', sets: 4, reps: '15', notes: 'Correct shoulder elevation' }] },
+        { day: 'Thursday', title: 'Legs & Lower Body Conditioning', exercises: [{ name: 'Barbell Back Squats', sets: 4, reps: '6-8', notes: 'Full depth parallel' }, { name: 'Leg Press', sets: 3, reps: '12', notes: 'Steady resistance' }, { name: 'Standing Calf Raises', sets: 4, reps: '15-20', notes: 'Pause at top' }] },
+        { day: 'Friday', title: 'Shoulders & Arms Sculpting', exercises: [{ name: 'Overhead Press', sets: 4, reps: '8-10', notes: 'Keep core engaged' }, { name: 'Dumbbell Lateral Raises', sets: 4, reps: '12-15', notes: 'Lead with elbows' }] }
+      ]
+    }
+  };
+
+  const [activePlan, setActivePlan] = useState(DEFAULT_INITIAL_PLAN);
   const [generatingPlan, setGeneratingPlan] = useState(false);
   const [masterPlans, setMasterPlans] = useState([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState(null);
