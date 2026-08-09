@@ -141,14 +141,20 @@ app.get('/api/users/me', async (req, res) => {
 // USER PROFILE ENDPOINTS (/api/users/profile)
 app.get('/api/users/profile', async (req, res) => {
     try {
-        const userId = req.session.user ? req.session.user.id : null;
-        if (!userId) {
-            return res.status(401).json({ error: "Unauthorized" });
+        const userId = req.session.user ? req.session.user.id : (req.query.userId || null);
+        const email = req.query.email || null;
+
+        let user = null;
+        if (userId) {
+            user = await User.findById(userId).select('-password');
+        } else if (email) {
+            user = await User.findOne({ email }).select('-password');
         }
-        const user = await User.findById(userId).select('-password');
+
         if (!user) {
-            return res.status(404).json({ error: "User not found" });
+            return res.status(200).json({ success: false, isUserOnboarding: false, isOnBoardingCompleted: false });
         }
+
         const isOnboarded = !!(user.isUserOnboarding || user.isOnBoardingCompleted || user.hasCompletedOnboarding);
         res.json({
             success: true,
@@ -163,7 +169,8 @@ app.get('/api/users/profile', async (req, res) => {
 
 app.post('/api/users/profile', async (req, res) => {
     try {
-        const userId = req.session.user ? req.session.user.id : null;
+        const userId = req.session.user ? req.session.user.id : (req.body.userId || null);
+        const email = req.body.email || null;
         const { uploadedPhotos, postureScore, estimatedBMI } = req.body;
         
         let updateData = {
@@ -178,6 +185,8 @@ app.post('/api/users/profile', async (req, res) => {
         let user = null;
         if (userId) {
             user = await User.findByIdAndUpdate(userId, updateData, { new: true }).select('-password');
+        } else if (email) {
+            user = await User.findOneAndUpdate({ email }, updateData, { new: true }).select('-password');
         }
 
         res.json({

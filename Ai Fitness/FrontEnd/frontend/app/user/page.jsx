@@ -129,20 +129,16 @@ export default function UserDashboard() {
   const [supportLoading, setSupportLoading] = useState(false);
 
   useEffect(() => {
+    let currentUser = null;
     const sessionStr = localStorage.getItem('midnight_auth_session');
     if (sessionStr) {
       try {
-        const parsed = JSON.parse(sessionStr);
-        setUser(parsed);
+        currentUser = JSON.parse(sessionStr);
+        setUser(currentUser);
       } catch (e) {}
     }
 
-    const onboardingDone = localStorage.getItem('ai_onboarding_completed');
-    if (!onboardingDone) {
-      setShowOnboardingModal(true);
-    }
-
-    // Auto-check meals based on current time (e.g. if hour >= 8 AM breakfast auto-checked, etc.)
+    // Auto-check meals based on current time
     const currentHour = new Date().getHours();
     setMealsChecklist({
       breakfast: currentHour >= 8,
@@ -151,7 +147,7 @@ export default function UserDashboard() {
       dinner: currentHour >= 19
     });
 
-    fetchInitialPlan();
+    fetchInitialPlan(currentUser);
     fetchSupportMessages();
     fetchMasterPlans();
     setLoading(false);
@@ -173,25 +169,31 @@ export default function UserDashboard() {
     }
   }, [modalStep, analysisResult]);
 
-  const fetchInitialPlan = async () => {
+  const fetchInitialPlan = async (currentUser) => {
+    const activeUser = currentUser || user;
+    const emailParam = activeUser?.email ? `?email=${encodeURIComponent(activeUser.email)}` : '';
+    
     try {
-      const res = await fetch('http://localhost:5000/api/users/profile', { credentials: 'include' });
+      const res = await fetch(`http://localhost:5000/api/users/profile${emailParam}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         if (data.user) {
           setUser(data.user);
-          // Check backend database status strictly for this specific user account
-          const isCompletedInDB = !!(data.user.isUserOnboarding || data.user.isOnBoardingCompleted || data.user.hasCompletedOnboarding);
-          
-          if (isCompletedInDB) {
-            setShowOnboardingModal(false);
-          } else {
-            // New user account has false in DB -> show mandatory posture onboarding popup!
-            setShowOnboardingModal(true);
-          }
         }
+        
+        // Strict DB Condition: if isUserOnboarding is false in backend -> POP UP POSTURE MODAL!
+        const isCompletedInDB = !!(data.isUserOnboarding || data.user?.isUserOnboarding || data.user?.isOnBoardingCompleted || data.user?.hasCompletedOnboarding);
+        if (isCompletedInDB) {
+          setShowOnboardingModal(false);
+        } else {
+          setShowOnboardingModal(true);
+        }
+      } else {
+        setShowOnboardingModal(true);
       }
-    } catch (e) {}
+    } catch (e) {
+      setShowOnboardingModal(true);
+    }
 
     generateAIPlan('Muscle Building', 'Gym (Full Equipment Split)', 'Peanuts, Dairy', 'None / Healthy');
   };
