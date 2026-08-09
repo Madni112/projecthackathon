@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,300..800;1,300..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Playfair+Display:ital,wght@0,300..900;1,300..900&display=swap');
+@import "tailwindcss";
+
+:root {
+  /* Surface & Canvas Tokens */
+  --colors-canvas: #f5f5f5;
+  --colors-canvas-soft: #fafafa;
+  --colors-canvas-deep: #0c0a09;
+  --colors-surface-card: #ffffff;
+  --colors-surface-strong: #f0efed;
+  --colors-surface-dark: #0c0a09;
+  
+  /* Text & Ink Tokens */
+  --colors-ink: #0c0a09;
+  --colors-body: #4e4e4e;
+  --colors-body-strong: #292524;
+  --colors-muted: #777169;
+  --colors-muted-soft: #a8a29e;
+  --colors-on-primary: #ffffff;
+
+  /* Primary Action Tokens */
+  --colors-primary: #292524;
+  --colors-primary-active: #0c0a09;
+
+  /* Hairline Border Tokens */
+  --colors-hairline: #e7e5e4;
+  --colors-hairline-soft: #f0efed;
+  --colors-hairline-strong: #d6d3d1;
+
+  /* Signature Pastel Atmospheric Gradient Orbs */
+  --gradient-mint: #a7e5d3;
+  --gradient-peach: #f4c5a8;
+  --gradient-lavender: #c8b8e0;
+  --gradient-sky: #a8c8e8;
+  --gradient-rose: #e8b8c4;
+}
+
+body {
+  background-color: var(--colors-canvas);
+  color: var(--colors-ink);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.015em;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Licensed/Editorial Display Serif Typography (Waldenburg 300 substitute) */
+.font-serif-editorial {
+  font-family: 'Playfair Display', 'EB Garamond', serif;
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+/* Pill CTA Buttons */
+.btn-primary-pill {
+  background-color: var(--colors-primary);
+  color: var(--colors-on-primary);
+  border-radius: 9999px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  padding: 0.625rem 1.25rem;
+  display: inline-flex;
+  items-center: center;
+  gap: 0.5rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(12, 10, 9, 0.08);
+}
+.btn-primary-pill:hover {
+  background-color: var(--colors-primary-active);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(12, 10, 9, 0.14);
+}
+
+.btn-outline-pill {
+  background-color: transparent;
+  color: var(--colors-ink);
+  border: 1px solid var(--colors-hairline-strong);
+  border-radius: 9999px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  padding: 0.625rem 1.25rem;
+  display: inline-flex;
+  items-center: center;
+  gap: 0.5rem;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.btn-outline-pill:hover {
+  border-color: var(--colors-ink);
+  background-color: rgba(12, 10, 9, 0.03);
+}
+
+/* Card Geometry & Shadow */
+.card-editorial {
+  background-color: var(--colors-surface-card);
+  border: 1px solid var(--colors-hairline);
+  border-radius: 1rem; /* 16px rounded-xl */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-editorial:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border-color: var(--colors-hairline-strong);
+}
+
+.badge-pill {
+  background-color: var(--colors-surface-strong);
+  color: var(--colors-ink);
+  border-radius: 9999px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.625rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--colors-canvas-soft);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--colors-hairline-strong);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--colors-muted-soft);
+}
+
+/* Gentle Atmospheric Orb Motion */
+@keyframes orbSlowFloat {
+  0%, 100% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(20px, -25px) scale(1.08); }
+}
+.animate-orb-drift {
+  animation: orbSlowFloat 12s ease-in-out infinite;
+}
+

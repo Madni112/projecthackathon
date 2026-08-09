@@ -1,0 +1,11 @@
+{
+  "name": "ai-fitness-coach-inner-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix FrontEnd/frontend run dev",
+    "start": "npm --prefix FrontEnd/frontend run dev",
+    "build": "npm --prefix FrontEnd/frontend run build",
+    "backend": "npm --prefix BackEnd start"
+  }
+}
