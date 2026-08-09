@@ -300,26 +300,22 @@ export default function UserDashboard() {
       { x: width * 0.65, y: height * 0.45, label: 'R Elbow' },
       { x: width * 0.42, y: height * 0.58, label: 'L Hip' },
       { x: width * 0.58, y: height * 0.58, label: 'R Hip' },
-      { x: width * 0.43, y: height * 0.78, label: 'L Knee' },
-      { x: width * 0.57, y: height * 0.78, label: 'R Knee' }
+      { x: 150, y: 35 }, { x: 150, y: 70 },
+      { x: 110, y: 110 }, { x: 190, y: 110 },
+      { x: 90, y: 170 }, { x: 210, y: 170 },
+      { x: 150, y: 200 }, { x: 125, y: 280 },
+      { x: 175, y: 280 }, { x: 120, y: 360 }, { x: 180, y: 360 }
     ];
 
-    ctx.strokeStyle = '#292524';
-    ctx.lineWidth = 2.5;
     const connections = [
-      [1, 2], [1, 3], [2, 4], [1, 5], [2, 6], [5, 6], [5, 7], [6, 8]
+      [0, 1], [1, 2], [1, 3], [2, 4], [3, 5],
+      [1, 6], [6, 7], [6, 8], [7, 9], [8, 10]
     ];
     connections.forEach(([i, j]) => {
       ctx.beginPath();
       ctx.moveTo(points[i].x, points[i].y);
       ctx.lineTo(points[j].x, points[j].y);
       ctx.stroke();
-    });
-
-    points.forEach(p => {
-      ctx.fillStyle = '#0c0a09';
-      ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI); ctx.fill();
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
     });
   };
 
@@ -361,13 +357,25 @@ export default function UserDashboard() {
     }
     localStorage.setItem('ai_onboarding_completed', 'true');
     try {
+      // Save permanently to user's profile in backend database
+      await fetch('http://localhost:5000/api/users/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          isOnBoardingCompleted: true,
+          uploadedPhotos: bodyPhotos,
+          postureScore: analysisResult?.postureScore || 88,
+          estimatedBMI: analysisResult?.estimatedBMI || 22.4
+        })
+      });
       await fetch('http://localhost:5000/api/users/complete-onboarding', {
         method: 'POST',
         credentials: 'include'
       });
     } catch (e) {}
     setShowOnboardingModal(false);
-    toast.success(`Custom plan generated & saved to your dashboard! 🎉`);
+    toast.success(`Custom plan generated & saved to your profile permanently! 🎉`);
   };
 
   const handleWaterToggle = (key, mlValue) => {

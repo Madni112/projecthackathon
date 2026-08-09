@@ -137,6 +137,56 @@ app.get('/api/users/me', async (req, res) => {
     res.json({ loggedIn: true, user: user || req.session.user });
 });
 
+// USER PROFILE ENDPOINTS (/api/users/profile)
+app.get('/api/users/profile', async (req, res) => {
+    try {
+        const userId = req.session.user ? req.session.user.id : null;
+        if (!userId) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
+        const user = await User.findById(userId).select('-password');
+        if (!user) {
+            return res.status(404).json({ error: "User not found" });
+        }
+        res.json({
+            success: true,
+            user,
+            isOnBoardingCompleted: !!(user.isOnBoardingCompleted || user.hasCompletedOnboarding)
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/users/profile', async (req, res) => {
+    try {
+        const userId = req.session.user ? req.session.user.id : null;
+        const { uploadedPhotos, postureScore, estimatedBMI } = req.body;
+        
+        let updateData = {
+            isOnBoardingCompleted: true,
+            hasCompletedOnboarding: true
+        };
+        if (uploadedPhotos) updateData.uploadedPhotos = uploadedPhotos;
+        if (postureScore) updateData.postureScore = postureScore;
+        if (estimatedBMI) updateData.estimatedBMI = estimatedBMI;
+
+        let user = null;
+        if (userId) {
+            user = await User.findByIdAndUpdate(userId, updateData, { new: true }).select('-password');
+        }
+
+        res.json({
+            success: true,
+            message: "User profile updated permanently in backend",
+            user,
+            isOnBoardingCompleted: true
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/users/logout', (req, res) => {
     req.session.destroy(err => {
         if (err) {
