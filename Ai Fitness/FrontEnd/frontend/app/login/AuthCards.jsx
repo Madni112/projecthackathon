@@ -42,18 +42,21 @@ export default function AuthCards({ isLogin, setIsLogin }) {
                 }
 
                 localStorage.setItem('midnight_auth_session', JSON.stringify({
-                    role: data.user.role,
-                    name: data.user.name
+                    role: data.user?.role || 'user',
+                    name: data.user?.name || values.email.split('@')[0],
+                    email: data.user?.email || values.email,
+                    _id: data.user?._id
                 }));
 
-                toast.success(`Welcome back, ${data.user.name || 'User'}!`);
-                router.push(data.user.role === 'admin' ? '/admin' : '/employee');
+                toast.success(`Welcome back, ${data.user?.name || 'User'}!`);
+                router.push(data.user?.role === 'admin' ? '/admin' : '/user');
 
             } catch (err) {
-                const role = values.email.includes('admin') ? 'admin' : 'employee';
+                const role = values.email.includes('admin') ? 'admin' : 'user';
                 localStorage.setItem('midnight_auth_session', JSON.stringify({
                     role,
-                    name: values.email.split('@')[0]
+                    name: values.email.split('@')[0],
+                    email: values.email
                 }));
                 toast.success(`Welcome back!`);
                 router.push(role === 'admin' ? '/admin' : '/user');
@@ -73,7 +76,7 @@ export default function AuthCards({ isLogin, setIsLogin }) {
         onSubmit: async (values, { setSubmitting }) => {
             try {
                 const emailLower = values.email.toLowerCase();
-                const designatedRole = emailLower.includes('admin') ? 'admin' : 'employee';
+                const designatedRole = emailLower.includes('admin') ? 'admin' : 'user';
 
                 const regResponse = await fetch('http://localhost:5000/api/users/register', {
                     method: 'POST',
@@ -96,17 +99,20 @@ export default function AuthCards({ isLogin, setIsLogin }) {
                 toast.success('Account created! Initializing session...');
 
                 localStorage.setItem('midnight_auth_session', JSON.stringify({
-                    role: designatedRole,
-                    name: values.fullName
+                    role: regData.user?.role || designatedRole,
+                    name: regData.user?.name || values.fullName,
+                    email: regData.user?.email || values.email,
+                    _id: regData.user?._id
                 }));
 
                 router.push(designatedRole === 'admin' ? '/admin' : '/user');
 
             } catch (err) {
-                const designatedRole = values.email.includes('admin') ? 'admin' : 'employee';
+                const designatedRole = values.email.includes('admin') ? 'admin' : 'user';
                 localStorage.setItem('midnight_auth_session', JSON.stringify({
                     role: designatedRole,
-                    name: values.fullName
+                    name: values.fullName,
+                    email: values.email
                 }));
                 toast.success('Account initialized!');
                 router.push(designatedRole === 'admin' ? '/admin' : '/user');

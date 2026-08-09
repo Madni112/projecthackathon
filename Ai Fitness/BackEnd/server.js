@@ -215,8 +215,9 @@ app.post('/api/users/logout', (req, res) => {
 //// AI BODY ANALYSIS & POSTURE ESTIMATION (OpenRouter Multimodal Vision AI Analysis)
 app.post('/api/fitness/body-analysis', async (req, res) => {
     try {
-        const { front, back, left, right } = req.body;
-        const userId = req.session.user ? req.session.user.id : null;
+        const { front, back, left, right, userId: bodyUserId, email: bodyEmail } = req.body;
+        const userId = req.session.user ? req.session.user.id : (bodyUserId || null);
+        const email = bodyEmail || null;
         const images = [front, back, left, right].filter(Boolean);
 
         let postureScore = 90;
@@ -274,13 +275,19 @@ Output STRICT JSON format:
             console.warn("[AI Engine] Vision body analysis AI fallback used:", e.message);
         }
 
+        const updateData = {
+            postureScore,
+            estimatedBMI,
+            estimatedWeight,
+            bodyLandmarks: landmarks,
+            insights,
+            uploadedPhotos: { front, back, left, right }
+        };
+
         if (userId) {
-            await User.findByIdAndUpdate(userId, {
-                postureScore,
-                estimatedBMI,
-                bodyLandmarks: landmarks,
-                uploadedPhotos: { front, back, left, right }
-            });
+            await User.findByIdAndUpdate(userId, updateData);
+        } else if (email) {
+            await User.findOneAndUpdate({ email }, updateData);
         }
 
         res.json({
@@ -474,11 +481,45 @@ app.delete('/api/admin/plans/:id', async (req, res) => {
     }
 });
 
+// GET SAVED USER AI PLAN
+app.get('/api/fitness/plan', async (req, res) => {
+    try {
+        const userId = req.session.user ? req.session.user.id : (req.query.userId || null);
+        const email = req.query.email || null;
+
+        let plan = null;
+        if (userId) {
+            plan = await Plan.findOne({ userId }).sort({ createdAt: -1 });
+        } else if (email) {
+            const user = await User.findOne({ email });
+            if (user) {
+                plan = await Plan.findOne({ userId: user._id }).sort({ createdAt: -1 });
+            }
+        }
+
+        if (plan) {
+            res.json({ success: true, plan });
+        } else {
+            res.json({ success: false, plan: null });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // PLAN GENERATOR & RAG ASSISTANT
 app.post('/api/fitness/generate-plan', async (req, res) => {
     try {
-        const { goal, planType, allergies, diagnosis, templateId } = req.body;
-        const userId = req.session.user ? req.session.user.id : null;
+        const { goal, planType, allergies, diagnosis, templateId, userId: bodyUserId, email: bodyEmail } = req.body;
+        const userId = req.session.user ? req.session.user.id : (bodyUserId || null);
+        const email = bodyEmail || null;
+
+        let targetUser = null;
+        if (userId) {
+            targetUser = await User.findById(userId);
+        } else if (email) {
+            targetUser = await User.findOne({ email });
+        }
 
         let selectedTemplate = null;
         if (templateId) {
@@ -575,7 +616,7 @@ Output STRICT JSON format:
         }
 
         const generatedPlan = {
-            userId: userId || new mongoose.Types.ObjectId(),
+            userId: targetUser ? targetUser._id : new mongoose.Types.ObjectId(),
             goal: selectedTemplate ? selectedTemplate.goal : (goal || 'Muscle Building'),
             planType: selectedTemplate ? selectedTemplate.workoutSplitType : (planType || 'Gym'),
             allergies: Array.isArray(allergies) ? allergies : [allergyStr],
@@ -590,11 +631,15 @@ Output STRICT JSON format:
             }
         };
 
-        if (userId) {
-            await Plan.deleteMany({ userId });
+        if (targetUser) {
+            await Plan.deleteMany({ userId: targetUser._id });
             const saved = new Plan(generatedPlan);
             await saved.save();
-            await User.findByIdAndUpdate(userId, { hasCompletedOnboarding: true, isOnBoardingCompleted: true });
+            await User.findByIdAndUpdate(targetUser._id, {
+                isUserOnboarding: true,
+                hasCompletedOnboarding: true,
+                isOnBoardingCompleted: true
+            });
         }
 
         res.json({ success: true, plan: generatedPlan });
@@ -700,11 +745,16 @@ Output STRICT JSON format:
 
 app.post('/api/users/complete-onboarding', async (req, res) => {
     try {
-        const userId = req.session.user ? req.session.user.id : null;
+        const userId = req.session.user ? req.session.user.id : (req.body.userId || null);
+        const email = req.body.email || null;
+        
+        const updateObj = { isUserOnboarding: true, hasCompletedOnboarding: true, isOnBoardingCompleted: true };
         if (userId) {
-            await User.findByIdAndUpdate(userId, { hasCompletedOnboarding: true, isOnBoardingCompleted: true });
+            await User.findByIdAndUpdate(userId, updateObj);
+        } else if (email) {
+            await User.findOneAndUpdate({ email }, updateObj);
         }
-        res.json({ success: true });
+        res.json({ success: true, isUserOnboarding: true, isOnBoardingCompleted: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

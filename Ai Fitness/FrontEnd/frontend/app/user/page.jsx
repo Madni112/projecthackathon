@@ -92,16 +92,16 @@ export default function UserDashboard() {
 
   // Daily Habits State
   const [habits, setHabits] = useState({
-    waterMl: 3000,
-    sleepHours: 7.5,
-    workoutDone: true,
-    mealsTracked: 3,
-    weight: 74.5
+    waterMl: 0,
+    sleepHours: 0,
+    workoutDone: false,
+    mealsTracked: 0,
+    weight: 0
   });
   const [waterChecklist, setWaterChecklist] = useState({
-    l1: true,
-    l2: true,
-    l3: true,
+    l1: false,
+    l2: false,
+    l3: false,
     l4: false
   });
   const [mealsChecklist, setMealsChecklist] = useState({
@@ -111,8 +111,8 @@ export default function UserDashboard() {
     dinner: false
   });
 
-  const [streakCount, setStreakCount] = useState(6);
-  const [fitnessScore, setFitnessScore] = useState(84);
+  const [streakCount, setStreakCount] = useState(0);
+  const [fitnessScore, setFitnessScore] = useState(0);
 
   // AI Chatbot RAG State
   const [chatMessages, setChatMessages] = useState([
@@ -136,6 +136,12 @@ export default function UserDashboard() {
         currentUser = JSON.parse(sessionStr);
         setUser(currentUser);
       } catch (e) {}
+    }
+
+    if (!currentUser) {
+      toast.error('Access denied. Please log in first to access your User Portal.');
+      router.replace('/login');
+      return;
     }
 
     // Auto-check meals based on current time
@@ -170,9 +176,31 @@ export default function UserDashboard() {
   }, [modalStep, analysisResult]);
 
   const fetchInitialPlan = async (currentUser) => {
-    const activeUser = currentUser || user;
-    const emailParam = activeUser?.email ? `?email=${encodeURIComponent(activeUser.email)}` : '';
-    
+    let activeUser = currentUser;
+    if (!activeUser?.email) {
+      try {
+        const sessionStr = localStorage.getItem('midnight_auth_session');
+        if (sessionStr) activeUser = JSON.parse(sessionStr);
+      } catch (e) {}
+    }
+    if (!activeUser) activeUser = user;
+
+    const userEmail = activeUser?.email;
+    const userId = activeUser?._id || activeUser?.id;
+
+    // Check if onboarding was completed strictly for this specific account
+    const isLocallyCompleted = !!(
+      (userEmail && localStorage.getItem('ai_onboarding_completed_' + userEmail) === 'true') ||
+      (userId && localStorage.getItem('ai_onboarding_completed_' + userId) === 'true')
+    );
+
+    if (isLocallyCompleted) {
+      setShowOnboardingModal(false);
+    }
+
+    const emailParam = userEmail ? `?email=${encodeURIComponent(userEmail)}` : '';
+    const userIdParam = userId ? `&userId=${userId}` : '';
+
     try {
       const res = await fetch(`http://localhost:5000/api/users/profile${emailParam}`, { credentials: 'include' });
       if (res.ok) {
@@ -181,18 +209,35 @@ export default function UserDashboard() {
           setUser(data.user);
         }
         
-        // Strict DB Condition: if isUserOnboarding is false in backend -> POP UP POSTURE MODAL!
         const isCompletedInDB = !!(data.isUserOnboarding || data.user?.isUserOnboarding || data.user?.isOnBoardingCompleted || data.user?.hasCompletedOnboarding);
-        if (isCompletedInDB) {
+        if (isCompletedInDB || isLocallyCompleted) {
           setShowOnboardingModal(false);
         } else {
           setShowOnboardingModal(true);
         }
       } else {
-        setShowOnboardingModal(true);
+        if (isLocallyCompleted) {
+          setShowOnboardingModal(false);
+        } else {
+          setShowOnboardingModal(true);
+        }
+      }
+
+      // Fetch saved AI Plan from MongoDB for this account
+      const planRes = await fetch(`http://localhost:5000/api/fitness/plan${emailParam}${userIdParam}`, { credentials: 'include' });
+      if (planRes.ok) {
+        const planData = await planRes.json();
+        if (planData.plan) {
+          setActivePlan(planData.plan);
+          return;
+        }
       }
     } catch (e) {
-      setShowOnboardingModal(true);
+      if (isLocallyCompleted) {
+        setShowOnboardingModal(false);
+      } else {
+        setShowOnboardingModal(true);
+      }
     }
 
     generateAIPlan('Muscle Building', 'Gym (Full Equipment Split)', 'Peanuts, Dairy', 'None / Healthy');
@@ -219,6 +264,10 @@ export default function UserDashboard() {
     router.replace('/login');
   };
 
+  const handleGoalSelect = (goal) => {
+    setSelectedGoal(goal);
+  };
+
   const handlePhotoUpload = (angle, e) => {
     const file = e.target.files[0];
     if (file) {
@@ -230,31 +279,43 @@ export default function UserDashboard() {
 
   const runBodyAnalysis = async () => {
     if (!bodyPhotos.front || !bodyPhotos.back || !bodyPhotos.left || !bodyPhotos.right) {
-      toast.error("All 4 posture photos (Front, Back, Left, Right) are strictly required to proceed!");
+      toast.error('Please upload all 4 posture photo angles (Front, Back, Right, Left) to proceed!');
       return;
     }
     setAnalyzing(true);
+    let activeUser = user;
+    if (!activeUser?.email) {
+      try {
+        const sessionStr = localStorage.getItem('midnight_auth_session');
+        if (sessionStr) activeUser = JSON.parse(sessionStr);
+      } catch (e) {}
+    }
+
     try {
       const res = await fetch('http://localhost:5000/api/fitness/body-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyPhotos)
+        credentials: 'include',
+        body: JSON.stringify({
+          ...bodyPhotos,
+          email: activeUser?.email,
+          userId: activeUser?._id || activeUser?.id
+        })
       });
       const data = await res.json();
-
       const estWeight = data.estimatedWeight || 74.5;
       const estBMI = data.estimatedBMI || 22.4;
-      const estCalories = selectedGoal === 'Weight Loss' ? 1850 : selectedGoal === 'Weight Gain' ? 2800 : 2450;
+      const estCalories = data.estimatedCalories || 2450;
 
       setAnalysisResult({
-        postureScore: data.postureScore || 88,
+        postureScore: data.postureScore || 90,
         estimatedBMI: estBMI,
         estimatedWeight: estWeight,
         estimatedCalories: estCalories,
-        landmarks: data.landmarks || { headTilt: 1.8, shoulderAlignment: 97.5, spineCurvature: 94.0 },
+        landmarks: data.landmarks || { headTilt: 2.1, shoulderAlignment: 97.5, spineCurvature: 94.0 },
         insights: data.insights || [
           "Left shoulder slightly elevated (+1.4°). Core stability recommended.",
-          "Normal cervical posture alignment (1.8° tilt).",
+          "Normal cervical posture alignment (2.1° tilt).",
           "Optimal spinal symmetry index (94.0%)."
         ]
       });
@@ -264,11 +325,11 @@ export default function UserDashboard() {
       toast.success("AI Agent posture & body analysis complete!");
     } catch (e) {
       setAnalysisResult({
-        postureScore: 88,
+        postureScore: 90,
         estimatedBMI: 22.4,
         estimatedWeight: 74.5,
         estimatedCalories: 2450,
-        landmarks: { headTilt: 1.8, shoulderAlignment: 97.5, spineCurvature: 94.0 },
+        landmarks: { headTilt: 2.1, shoulderAlignment: 97.5, spineCurvature: 94.0 },
         insights: [
           "Left shoulder slightly elevated (+1.4°). Core stability recommended.",
           "Normal cervical posture alignment (1.8° tilt).",
@@ -356,7 +417,26 @@ export default function UserDashboard() {
   };
 
   const completeOnboardingGoal = async () => {
+    let activeUser = user;
+    if (!activeUser?.email) {
+      try {
+        const sessionStr = localStorage.getItem('midnight_auth_session');
+        if (sessionStr) activeUser = JSON.parse(sessionStr);
+      } catch (e) {}
+    }
+
+    const email = activeUser?.email;
+    const userId = activeUser?._id || activeUser?.id;
+
+    if (email) {
+      localStorage.setItem('ai_onboarding_completed_' + email, 'true');
+    }
+    if (userId) {
+      localStorage.setItem('ai_onboarding_completed_' + userId, 'true');
+    }
+
     await generateAIPlan(selectedGoal, selectedWorkoutOption, allergiesText, selectedDiagnosis);
+
     try {
       // Save permanently to user's profile in backend database
       await fetch('http://localhost:5000/api/users/profile', {
@@ -364,16 +444,28 @@ export default function UserDashboard() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
+          email,
+          userId,
           isUserOnboarding: true,
           isOnBoardingCompleted: true,
+          hasCompletedOnboarding: true,
           uploadedPhotos: bodyPhotos,
-          postureScore: analysisResult?.postureScore || 88,
-          estimatedBMI: analysisResult?.estimatedBMI || 22.4
+          postureScore: analysisResult?.postureScore || 90,
+          estimatedBMI: analysisResult?.estimatedBMI || 22.4,
+          estimatedWeight: analysisResult?.estimatedWeight || habits.weight || 74.5
         })
       });
       await fetch('http://localhost:5000/api/users/complete-onboarding', {
         method: 'POST',
-        credentials: 'include'
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email,
+          userId,
+          isUserOnboarding: true,
+          isOnBoardingCompleted: true,
+          hasCompletedOnboarding: true
+        })
       });
     } catch (e) {}
     setShowOnboardingModal(false);
@@ -493,12 +585,21 @@ export default function UserDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#f0ece1] border border-[rgba(32,32,32,0.12)]">
+              <div className="w-6 h-6 rounded-full bg-[#ea2804] text-white flex items-center justify-center font-bold text-xs uppercase">
+                {(user?.name || 'U').charAt(0)}
+              </div>
+              <span className="font-bold text-xs text-[#202020] max-w-[150px] truncate">
+                {user?.name || 'User'}
+              </span>
+            </div>
             <button
               onClick={handleLogout}
-              className="p-2 rounded-full border border-[rgba(32,32,32,0.12)] hover:bg-red-50 text-[#575757] hover:text-[#ea2804] transition-colors"
+              className="px-3.5 py-1.5 rounded-full border border-[rgba(32,32,32,0.12)] hover:bg-red-50 text-[#575757] hover:text-[#ea2804] transition-colors flex items-center gap-1.5 text-xs font-bold"
             >
               <LogOut className="w-4 h-4" />
+              <span>Logout</span>
             </button>
           </div>
         </div>
@@ -674,7 +775,7 @@ export default function UserDashboard() {
                     <span>Current Weight</span>
                     <TrendingUp className="w-4 h-4 text-[#292524]" />
                   </div>
-                  <div className="text-3xl font-serif-editorial text-[#0c0a09]">{habits.weight} kg</div>
+                  <div className="text-3xl font-serif-editorial text-[#0c0a09]">{analysisResult?.estimatedWeight || habits.weight || user?.estimatedWeight || 0} kg</div>
                   <p className="text-[10px] text-[#777169]">-1.2 kg progress trend</p>
                 </div>
 

@@ -9,8 +9,10 @@ const UserSchema = new mongoose.Schema({
   fitnessScore: { type: Number, default: 78 },
   streakCount: { type: Number, default: 5 },
   lastLogin: { type: Date, default: Date.now },
-  postureScore: { type: Number, default: 85 },
-  estimatedBMI: { type: Number, default: 22.4 },
+  postureScore: { type: Number, default: 0 },
+  estimatedBMI: { type: Number, default: 0 },
+  estimatedWeight: { type: Number, default: 0 },
+  insights: { type: Array, default: [] },
   bodyLandmarks: {
     headTilt: { type: Number, default: 2.1 },
     shoulderAlignment: { type: Number, default: 98.4 },
