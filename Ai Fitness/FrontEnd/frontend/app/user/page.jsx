@@ -180,14 +180,13 @@ export default function UserDashboard() {
         const data = await res.json();
         if (data.user) {
           setUser(data.user);
-          const userKey = 'ai_onboarding_completed_' + (data.user.email || data.user._id);
-          const userOnboardingDone = localStorage.getItem(userKey) === 'true' || localStorage.getItem('ai_onboarding_completed') === 'true';
-          const isCompleted = !!(data.user.isUserOnboarding || data.user.isOnBoardingCompleted || data.user.hasCompletedOnboarding || userOnboardingDone);
+          // Check backend database status strictly for this specific user account
+          const isCompletedInDB = !!(data.user.isUserOnboarding || data.user.isOnBoardingCompleted || data.user.hasCompletedOnboarding);
           
-          // STRICT RULE: Ask posture photos ONLY ONCE in a lifetime for a user account!
-          if (isCompleted) {
+          if (isCompletedInDB) {
             setShowOnboardingModal(false);
           } else {
+            // New user account has false in DB -> show mandatory posture onboarding popup!
             setShowOnboardingModal(true);
           }
         }
@@ -356,10 +355,6 @@ export default function UserDashboard() {
 
   const completeOnboardingGoal = async () => {
     await generateAIPlan(selectedGoal, selectedWorkoutOption, allergiesText, selectedDiagnosis);
-    if (user?.email || user?._id) {
-      localStorage.setItem('ai_onboarding_completed_' + (user.email || user._id), 'true');
-    }
-    localStorage.setItem('ai_onboarding_completed', 'true');
     try {
       // Save permanently to user's profile in backend database
       await fetch('http://localhost:5000/api/users/profile', {
@@ -367,6 +362,7 @@ export default function UserDashboard() {
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
+          isUserOnboarding: true,
           isOnBoardingCompleted: true,
           uploadedPhotos: bodyPhotos,
           postureScore: analysisResult?.postureScore || 88,
