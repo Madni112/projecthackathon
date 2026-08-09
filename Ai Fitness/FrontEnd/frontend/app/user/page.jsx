@@ -58,6 +58,7 @@ export default function UserDashboard() {
   const [selectedGoal, setSelectedGoal] = useState('Muscle Building');
   const [selectedDiagnosis, setSelectedDiagnosis] = useState('None / Healthy');
   const [allergiesText, setAllergiesText] = useState('Peanuts, Dairy');
+  const [selectedWorkoutOption, setSelectedWorkoutOption] = useState('Gym (Full Equipment Split)');
   const DEFAULT_INITIAL_PLAN = {
     goal: 'Muscle Building',
     planType: 'Gym (Full Equipment Split)',
