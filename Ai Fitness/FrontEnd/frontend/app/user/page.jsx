@@ -643,7 +643,27 @@ export default function UserDashboard() {
         <main className="lg:col-span-9 space-y-6">
 
           {/* ─── TAB 1: OVERVIEW DASHBOARD ─── */}
-          {activeTab === 'overview' && (
+          {activeTab === 'overview' && (() => {
+            const displayWeight = (user?.estimatedWeight && Number(user.estimatedWeight) > 0)
+              ? user.estimatedWeight
+              : (user?.weight && Number(user.weight) > 0)
+              ? user.weight
+              : (analysisResult?.estimatedWeight && Number(analysisResult.estimatedWeight) > 0)
+              ? analysisResult.estimatedWeight
+              : (habits?.weight && Number(habits.weight) > 0)
+              ? habits.weight
+              : 74.5;
+
+            const displayCalories = activePlan?.dietPlan?.dailyCalories || analysisResult?.estimatedCalories || 2450;
+            const displayPostureScore = user?.postureScore || analysisResult?.postureScore || 88;
+            const displayStreak = (user?.streakCount && Number(user.streakCount) > 0)
+              ? user.streakCount
+              : (streakCount && Number(streakCount) > 0)
+              ? streakCount
+              : 5;
+            const displayWaterMl = (habits?.waterMl && Number(habits.waterMl) > 0) ? habits.waterMl : 3000;
+
+            return (
             <div className="space-y-6">
               {/* ─── VISUAL PROGRESS GRAPHS SECTION ─── */}
               <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
@@ -657,7 +677,7 @@ export default function UserDashboard() {
                       </h3>
                       <p className="text-[11px] text-[#777169]">4-Week Trajectory Target: {selectedGoal}</p>
                     </div>
-                    <span className="badge-pill text-[10px]">{habits.weight} kg Current</span>
+                    <span className="badge-pill text-[10px]">{displayWeight} kg Current</span>
                   </div>
 
                   {/* SVG Chart */}
@@ -693,7 +713,7 @@ export default function UserDashboard() {
                       <text x="260" y="110" textAnchor="middle" className="text-[10px] font-mono fill-[#777169]">Wk 3 (75.1k)</text>
 
                       <circle cx="380" cy="30" r="6" fill="#0c0a09" stroke="#ffffff" strokeWidth="2" />
-                      <text x="380" y="110" textAnchor="middle" className="text-[10px] font-mono fill-[#0c0a09] font-bold">Wk 4 ({habits.weight}k)</text>
+                      <text x="380" y="110" textAnchor="middle" className="text-[10px] font-mono fill-[#0c0a09] font-bold">Wk 4 ({displayWeight}k)</text>
                     </svg>
                   </div>
                 </div>
@@ -740,11 +760,11 @@ export default function UserDashboard() {
 
                     <div>
                       <div className="flex justify-between text-xs mb-1">
-                        <span className="font-semibold text-[#0c0a09]">Hydration ({habits.waterMl}ml)</span>
-                        <span className="font-mono text-[#777169]">{Math.round((habits.waterMl / 4000) * 100)}%</span>
+                        <span className="font-semibold text-[#0c0a09]">Hydration ({displayWaterMl}ml)</span>
+                        <span className="font-mono text-[#777169]">{Math.round((displayWaterMl / 4000) * 100)}%</span>
                       </div>
                       <div className="h-2.5 w-full bg-[#e7e5e4] rounded-full overflow-hidden">
-                        <div className="h-full bg-[#a8a29e] rounded-full" style={{ width: `${Math.min(100, Math.round((habits.waterMl / 4000) * 100))}%` }} />
+                        <div className="h-full bg-[#a8a29e] rounded-full" style={{ width: `${Math.min(100, Math.round((displayWaterMl / 4000) * 100))}%` }} />
                       </div>
                     </div>
                   </div>
@@ -775,7 +795,7 @@ export default function UserDashboard() {
                     <span>Current Weight</span>
                     <TrendingUp className="w-4 h-4 text-[#292524]" />
                   </div>
-                  <div className="text-3xl font-serif-editorial text-[#0c0a09]">{analysisResult?.estimatedWeight || habits.weight || user?.estimatedWeight || 0} kg</div>
+                  <div className="text-3xl font-serif-editorial text-[#0c0a09]">{displayWeight} kg</div>
                   <p className="text-[10px] text-[#777169]">-1.2 kg progress trend</p>
                 </div>
 
@@ -784,7 +804,7 @@ export default function UserDashboard() {
                     <span>Daily Calories Target</span>
                     <Utensils className="w-4 h-4 text-[#292524]" />
                   </div>
-                  <div className="text-3xl font-serif-editorial text-[#0c0a09]">{analysisResult ? analysisResult.estimatedCalories : 2450} kcal</div>
+                  <div className="text-3xl font-serif-editorial text-[#0c0a09]">{displayCalories} kcal</div>
                   <p className="text-[10px] text-[#777169]">Macro target matched</p>
                 </div>
 
@@ -793,7 +813,7 @@ export default function UserDashboard() {
                     <span>Habit Streak</span>
                     <Flame className="w-4 h-4 text-[#292524]" />
                   </div>
-                  <div className="text-3xl font-serif-editorial text-[#0c0a09]">{streakCount} Days</div>
+                  <div className="text-3xl font-serif-editorial text-[#0c0a09]">{displayStreak} Days</div>
                   <p className="text-[10px] text-[#777169]">Consistent tracking</p>
                 </div>
 
@@ -802,7 +822,7 @@ export default function UserDashboard() {
                     <span>Posture Score</span>
                     <Sparkles className="w-4 h-4 text-[#292524]" />
                   </div>
-                  <div className="text-3xl font-serif-editorial text-[#0c0a09]">{analysisResult ? analysisResult.postureScore : 88}%</div>
+                  <div className="text-3xl font-serif-editorial text-[#0c0a09]">{displayPostureScore}%</div>
                   <p className="text-[10px] text-[#777169]">MediaPipe keypoint score</p>
                 </div>
               </div>
@@ -852,7 +872,8 @@ export default function UserDashboard() {
                 </div>
               )}
             </div>
-          )}
+          );
+        })()}
 
           {/* ─── TAB 2: SEPARATE DEDICATED DIET PAGE WITH MEAL PICTURES ─── */}
           {activeTab === 'diet' && (

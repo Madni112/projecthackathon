@@ -93,29 +93,22 @@ export default function AuthCards({ isLogin, setIsLogin }) {
                 const regData = await regResponse.json();
 
                 if (!regResponse.ok) {
-                    throw new Error(regData.error || 'Account creation failed.');
+                    throw new Error(regData.error || 'An account with this email address already exists. Please log in.');
                 }
 
                 toast.success('Account created! Initializing session...');
 
                 localStorage.setItem('midnight_auth_session', JSON.stringify({
-                    role: regData.user?.role || designatedRole,
-                    name: regData.user?.name || values.fullName,
-                    email: regData.user?.email || values.email,
-                    _id: regData.user?._id
+                    role: regData.user?.role || regData.role || designatedRole,
+                    name: regData.user?.name || regData.name || values.fullName,
+                    email: regData.user?.email || regData.email || values.email,
+                    _id: regData.user?._id || regData._id
                 }));
 
                 router.push(designatedRole === 'admin' ? '/admin' : '/user');
 
             } catch (err) {
-                const designatedRole = values.email.includes('admin') ? 'admin' : 'user';
-                localStorage.setItem('midnight_auth_session', JSON.stringify({
-                    role: designatedRole,
-                    name: values.fullName,
-                    email: values.email
-                }));
-                toast.success('Account initialized!');
-                router.push(designatedRole === 'admin' ? '/admin' : '/user');
+                toast.error(err.message || 'Registration failed.');
             } finally {
                 setSubmitting(false);
             }

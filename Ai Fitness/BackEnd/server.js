@@ -60,9 +60,10 @@ app.post('/api/users/register', async (req, res) => {
             return res.status(400).json({ error: "All fields are strictly required" });
         }
 
-        const existingUser = await User.findOne({ email });
+        const emailNormalized = email.toLowerCase().trim();
+        const existingUser = await User.findOne({ email: emailNormalized });
         if (existingUser) {
-            return res.status(400).json({ error: "Email is already registered" });
+            return res.status(400).json({ error: "An account with this email address already exists. Please log in." });
         }
 
         const salt = await bcrypt.genSalt(10);
