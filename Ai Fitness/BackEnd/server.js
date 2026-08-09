@@ -517,17 +517,6 @@ Output STRICT JSON format:
             }
         }
 
-        const generatedPlan = {
-            userId: userId || new mongoose.Types.ObjectId(),
-            goal: selectedTemplate ? selectedTemplate.goal : (goal || 'Muscle Building'),
-            planType: selectedTemplate ? selectedTemplate.workoutSplitType : (planType || 'Gym'),
-            allergies: Array.isArray(allergies) ? allergies : [allergyStr],
-            diagnosis: diagStr,
-            dietPlan: {
-                dailyCalories: calories,
-                macros: { protein, carbs, fats },
-                meals: selectedTemplate && selectedTemplate.meals.length > 0 ? selectedTemplate.meals : generatedMeals
-            },
         // Dynamic AI Workout Split Generation based on user posture score, goal & equipment split
         let weeklySplit = [
             { day: 'Monday', title: 'Chest & Triceps Focus', exercises: [{ name: 'Barbell Bench Press', sets: 4, reps: '8-10', notes: 'Progressive overload' }, { name: 'Incline Dumbbell Press', sets: 3, reps: '10-12', notes: 'Control eccentric phase' }, { name: 'Tricep Cable Pushdowns', sets: 4, reps: '12-15', notes: 'Squeeze at bottom' }] },
